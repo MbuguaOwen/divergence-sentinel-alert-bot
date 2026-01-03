@@ -1,0 +1,17 @@
+[Unit]
+Description=Divergence Sentinel (Multi-TF Telegram Alerts)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/divergence-sentinel-alert-bot
+Environment=PYTHONUNBUFFERED=1
+# Option A: token in config
+ExecStart=/opt/divergence-sentinel-alert-bot/.venv/bin/python -m divergence_alert_bot.main --config /opt/divergence-sentinel-alert-bot/configs/default.yaml
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

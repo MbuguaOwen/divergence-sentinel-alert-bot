@@ -1,0 +1,66 @@
+app:
+  name: "Divergence Sentinel"
+  log_level: "INFO"
+
+provider:
+  type: "binance"
+  market: "futures"        # futures|spot
+  # Default 20 symbols. Edit freely.
+  symbols:
+    - BTCUSDT
+    - ETHUSDT
+    - BNBUSDT
+    - SOLUSDT
+    - XRPUSDT
+    - ADAUSDT
+    - DOGEUSDT
+    - TRXUSDT
+    - LINKUSDT
+    - AVAXUSDT
+    - MATICUSDT
+    - DOTUSDT
+    - LTCUSDT
+    - BCHUSDT
+    - UNIUSDT
+    - AAVEUSDT
+    - ATOMUSDT
+    - NEARUSDT
+    - OPUSDT
+    - ARBUSDT
+
+  timeframes: ["15m", "30m", "1h"]
+  warmup_candles: 350
+  rest_timeout_s: 60
+  ws_heartbeat_s: 20
+  warmup_concurrency: 5
+
+strategy:
+  don_len: 120
+  pivot_len: 5
+  osc_len: 14
+  ext_band_pct: 0.15
+  # Kill switches + scoring (High Probability Sniper)
+  ks_short_enabled: true
+  ks_don_width_atr_max: 16.7
+  ks_long_enabled: true
+  ks_liq_percentile_min: 0.25
+  ks_liq_lookback: 100
+  min_score_to_trade: 6
+
+trading_hours:
+  enabled: true
+  timezone: "UTC+3"   # Nairobi is UTC+3
+  start_hour: 8
+  end_hour: 1         # next day
+  # days: [0,1,2,3,4,5,6]   # optional: restrict to certain weekdays
+
+alerts:
+  include_features: true
+  include_score_breakdown: true
+  dedupe: true
+
+telegram:
+  enabled: true
+  token: ""            # or set env TELEGRAM_TOKEN
+  chat_ids: []         # or env TELEGRAM_CHAT_IDS="id1,id2"
+  disable_web_page_preview: true
