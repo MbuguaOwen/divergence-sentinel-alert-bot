@@ -13,20 +13,24 @@ class TelegramNotifier:
         self.chat_ids = [str(x).strip() for x in (chat_ids or []) if str(x).strip()]
         self.disable_web_page_preview = disable_web_page_preview
 
-    def enabled(self) -> bool:
-        return bool(self.token) and bool(self.chat_ids)
+    def enabled(self, chat_ids: Optional[List[str]] = None) -> bool:
+        ids = chat_ids if chat_ids is not None else self.chat_ids
+        return bool(self.token) and bool(ids)
 
-    async def send(self, text: str) -> None:
-        if not self.enabled():
+    async def send(self, text: str, *, chat_ids: Optional[List[str]] = None, parse_mode: Optional[str] = None) -> None:
+        ids = [str(x).strip() for x in (chat_ids if chat_ids is not None else self.chat_ids) if str(x).strip()]
+        if not self.enabled(ids):
             return
         url = f"https://api.telegram.org/bot{self.token}/sendMessage"
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as sess:
-            for chat_id in self.chat_ids:
+            for chat_id in ids:
                 payload = {
                     "chat_id": chat_id,
                     "text": text,
                     "disable_web_page_preview": self.disable_web_page_preview,
                 }
+                if parse_mode:
+                    payload["parse_mode"] = parse_mode
                 try:
                     async with sess.post(url, json=payload) as resp:
                         if resp.status != 200:

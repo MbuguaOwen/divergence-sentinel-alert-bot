@@ -447,6 +447,7 @@ class StrategyEngine:
                             osc_change_pct=osc_ch,
                             div_type=div_type,
                             slip_bps=((self.candles[confirm_idx].close - pl_price) / pl_price * 10000.0) if pl_price else 0.0,
+                            structural_sl=prev_price,
                             prob_score=score,
                             bars_gap=bars_gap,
                             score_breakdown=breakdown,
@@ -517,6 +518,7 @@ class StrategyEngine:
                             osc_change_pct=osc_ch,
                             div_type=div_type,
                             slip_bps=((ph_price - self.candles[confirm_idx].close) / ph_price * 10000.0) if ph_price else 0.0,
+                            structural_sl=prev_price,
                             prob_score=score,
                             bars_gap=bars_gap,
                             score_breakdown=breakdown,
@@ -540,12 +542,21 @@ class StrategyEngine:
         osc_change_pct: float,
         div_type: str,
         slip_bps: float,
+        structural_sl: Optional[float],
         prob_score: int,
         bars_gap: int,
         score_breakdown: str,
     ) -> Signal:
         don_loc_pct = float(self.loc[pivot_idx] * 100.0)
         extra = self._extra_features(confirm_idx, pivot_idx)
+        structural_sl_distance_pct: Optional[float] = None
+        if structural_sl is not None and entry_price:
+            if side == "LONG":
+                diff = entry_price - structural_sl
+            else:
+                diff = structural_sl - entry_price
+            if diff > 0:
+                structural_sl_distance_pct = (diff / entry_price) * 100.0
         return Signal(
             symbol=self.symbol,
             timeframe=self.timeframe,
@@ -559,6 +570,8 @@ class StrategyEngine:
             osc_change_pct=float(osc_change_pct),
             div_type=div_type,
             slip_bps=float(slip_bps),
+            structural_sl=structural_sl,
+            structural_sl_distance_pct=structural_sl_distance_pct,
             prob_score=int(prob_score),
             bars_gap=int(bars_gap),
             score_breakdown=score_breakdown or "",

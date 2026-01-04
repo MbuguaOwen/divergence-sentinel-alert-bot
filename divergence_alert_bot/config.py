@@ -70,11 +70,22 @@ class TelegramConfig:
     enabled: bool = True
     token: str = ""
     chat_ids: List[str] = None
+    public_chat_ids: List[str] = None
+    private_chat_ids: List[str] = None
     disable_web_page_preview: bool = True
 
 
 @dataclass
 class AlertsConfig:
+    parse_mode: str = "HTML"  # HTML | MarkdownV2
+    style: str = "corporate"
+    detail_level: str = "public"  # public | internal
+    footer: str = ""
+    include_entry_reference: bool = True
+    include_pivot_reference: bool = True
+    include_slippage_bps: bool = True
+    include_structural_sl: bool = True
+    structural_sl_max_distance_pct: float = 8.0  # percent distance from entry
     include_features: bool = True
     include_score_breakdown: bool = True
     dedupe: bool = True
@@ -120,9 +131,22 @@ def load_config(path: str) -> Config:
     cfg.telegram.token = _env_override(cfg.telegram.token, "TELEGRAM_TOKEN")
     if cfg.telegram.chat_ids is None:
         cfg.telegram.chat_ids = []
+    if cfg.telegram.public_chat_ids is None:
+        cfg.telegram.public_chat_ids = []
+    if cfg.telegram.private_chat_ids is None:
+        cfg.telegram.private_chat_ids = []
+
     # Allow TELEGRAM_CHAT_IDS="id1,id2"
     chat_env = os.getenv("TELEGRAM_CHAT_IDS")
     if chat_env:
         cfg.telegram.chat_ids = [x.strip() for x in chat_env.split(",") if x.strip()]
+
+    public_env = os.getenv("TELEGRAM_PUBLIC_CHAT_IDS")
+    if public_env:
+        cfg.telegram.public_chat_ids = [x.strip() for x in public_env.split(",") if x.strip()]
+
+    private_env = os.getenv("TELEGRAM_PRIVATE_CHAT_IDS")
+    if private_env:
+        cfg.telegram.private_chat_ids = [x.strip() for x in private_env.split(",") if x.strip()]
 
     return cfg

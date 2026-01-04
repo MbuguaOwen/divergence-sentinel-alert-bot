@@ -30,9 +30,16 @@ class AlertRunner:
             end_hour=cfg.trading_hours.end_hour,
             days=cfg.trading_hours.days,
         )
+
+        all_chat_ids = []
+        for lst in (cfg.telegram.chat_ids, cfg.telegram.public_chat_ids, cfg.telegram.private_chat_ids):
+            for cid in lst or []:
+                scid = str(cid).strip()
+                if scid and scid not in all_chat_ids:
+                    all_chat_ids.append(scid)
         self.tg = TelegramNotifier(
             token=cfg.telegram.token,
-            chat_ids=cfg.telegram.chat_ids,
+            chat_ids=all_chat_ids,
             disable_web_page_preview=cfg.telegram.disable_web_page_preview,
         )
 
@@ -117,12 +124,25 @@ class AlertRunner:
             return
         self._dedupe.add(key)
 
-        msg = format_signal(
-            sig,
-            include_features=self.cfg.alerts.include_features,
-            include_score_breakdown=self.cfg.alerts.include_score_breakdown,
-        )
         log.info("signal %s %s %s confirm=%s", sig.symbol, sig.timeframe, sig.side, sig.confirm_time_ms)
 
-        if self.tg.enabled():
-            await self.tg.send(msg)
+        if not self.tg.enabled():
+            return
+
+        alerts_cfg = self.cfg.alerts
+        parse_mode = getattr(alerts_cfg, "parse_mode", "HTML") or "HTML"
+
+        public_ids = self.cfg.telegram.public_chat_ids or []
+        private_ids = self.cfg.telegram.private_chat_ids or []
+        has_split = bool(public_ids or private_ids)
+
+        if has_split:
+            if public_ids:
+                msg_public = format_signal(sig, alerts_cfg, detail_level="public")
+                await self.tg.send(msg_public, chat_ids=public_ids, parse_mode=parse_mode)
+            if private_ids:
+                msg_internal = format_signal(sig, alerts_cfg, detail_level="internal")
+                await self.tg.send(msg_internal, chat_ids=private_ids, parse_mode=parse_mode)
+        else:
+            msg = format_signal(sig, alerts_cfg, detail_level=alerts_cfg.detail_level)
+            await self.tg.send(msg, parse_mode=parse_mode)

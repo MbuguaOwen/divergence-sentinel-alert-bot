@@ -28,6 +28,8 @@ class Signal:
     osc_change_pct: float
     div_type: str  # Classic or Equal
     slip_bps: float
+    structural_sl: Optional[float]
+    structural_sl_distance_pct: Optional[float]
     prob_score: int
     bars_gap: int
     score_breakdown: str

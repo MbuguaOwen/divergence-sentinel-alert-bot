@@ -55,6 +55,15 @@ trading_hours:
   # days: [0,1,2,3,4,5,6]   # optional: restrict to certain weekdays
 
 alerts:
+  parse_mode: "HTML"       # HTML | MarkdownV2
+  style: "corporate"
+  detail_level: "public"   # public | internal
+  footer: ""
+  include_entry_reference: true
+  include_pivot_reference: true
+  include_slippage_bps: true
+  include_structural_sl: true
+  structural_sl_max_distance_pct: 15.0  # max distance from entry to show structural SL (percent)
   include_features: true
   include_score_breakdown: true
   dedupe: true
@@ -63,4 +72,6 @@ telegram:
   enabled: true
   token: "8595351198:AAGfwVdX2mNiRlGk78uhLFOSUCWiyq648Cw"            # or set env TELEGRAM_TOKEN
   chat_ids: [5195322248]         # or env TELEGRAM_CHAT_IDS="id1,id2"
+  public_chat_ids: []  # optional: separate public channel(s)
+  private_chat_ids: [] # optional: private/internal channel(s)
   disable_web_page_preview: true
