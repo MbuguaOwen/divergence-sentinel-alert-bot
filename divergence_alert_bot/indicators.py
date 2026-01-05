@@ -60,3 +60,30 @@ def bps_diff(a: float, b: float) -> Optional[float]:
     if b == 0:
         return None
     return (a - b) / b * 10000.0
+
+
+def percentile_linear_interpolation(values: List[Optional[float]], lookback: int, pct: int) -> Optional[float]:
+    """TradingView-like percentile with linear interpolation over the last non-None values."""
+    if lookback <= 0 or pct < 0 or pct > 100:
+        return None
+
+    collected: List[float] = []
+    for v in reversed(values):
+        if v is None:
+            continue
+        collected.append(float(v))
+        if len(collected) >= lookback:
+            break
+
+    n = len(collected)
+    if n < lookback or n == 0:
+        return None
+
+    arr = sorted(collected)
+    rank = (pct / 100.0) * (n - 1)
+    lo = int(math.floor(rank))
+    hi = int(math.ceil(rank))
+    if lo == hi:
+        return arr[lo]
+    frac = rank - lo
+    return arr[lo] + frac * (arr[hi] - arr[lo])

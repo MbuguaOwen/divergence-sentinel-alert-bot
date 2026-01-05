@@ -155,8 +155,50 @@ def _format_corporate(signal: Signal, parse_mode: str, detail_level: str, cfg) -
     return "\n".join(lines)
 
 
+def _format_tv_parity(signal: Signal, parse_mode: str, cfg) -> str:
+    extra = signal.extra or {}
+    side = signal.side.upper()
+    entry_mode = extra.get("entry_mode") or ("CONFIRM" if extra.get("entry_wait_confirm") else "RAW")
+    header = f"TV PARITY {side} {entry_mode}"
+
+    lines = [
+        _escape_text(header, parse_mode),
+        f"{_escape_text(signal.symbol, parse_mode)} | {_bold(signal.timeframe, parse_mode)}",
+        _escape_text(f"Confirm: {_fmt_ms(signal.confirm_time_ms)}", parse_mode),
+        _escape_text(f"Entry: {_fmt_price(signal.entry_price)} | Pivot: {_fmt_price(signal.pivot_price)}", parse_mode),
+    ]
+
+    cvd_now = extra.get("cvd_now")
+    cvd_thr = extra.get("cvd_thr")
+    if cvd_now is not None or cvd_thr is not None:
+        gate_pass = extra.get("cvd_gate_pass")
+        lines.append(_escape_text(f"CVD: {cvd_now} / Thr: {cvd_thr} | Pass: {gate_pass}", parse_mode))
+
+    lines.append(_escape_text(f"Osc%: {signal.osc_change_pct:+.1f}% | Don loc: {signal.don_loc_pct:.1f}%", parse_mode))
+    lines.append(_escape_text(f"Trigger: BOS={extra.get('use_bos_confirm')} buf={extra.get('bos_atr_buffer')} wait={extra.get('max_wait_bars')} longTrig={extra.get('longTrig')}", parse_mode))
+
+    if getattr(cfg, "include_structural_sl", True):
+        sl_price, sl_distance = _safe_structural_sl(signal, getattr(cfg, "structural_sl_max_distance_pct", None))
+        if sl_price is not None:
+            sl_line = f"Structural SL: {_fmt_price(sl_price)}"
+            if sl_distance is not None:
+                sl_line += f" ({sl_distance:.1f}% from entry)"
+            lines.append(_escape_text(sl_line, parse_mode))
+
+    footer = (getattr(cfg, "footer", "") or "").strip()
+    if footer:
+        lines.append("")
+        lines.append(_escape_text(footer, parse_mode))
+
+    return "\n".join(lines)
+
+
 def format_signal(signal: Signal, cfg, *, detail_level: Optional[str] = None) -> str:
     """Format a signal for Telegram alerts using the requested style/detail level."""
+    if (signal.extra or {}).get("mode") == "tv_parity":
+        parse_mode = (getattr(cfg, "parse_mode", "HTML") or "HTML").upper()
+        return _format_tv_parity(signal, parse_mode, cfg)
+
     style = (getattr(cfg, "style", "corporate") or "corporate").lower()
     parse_mode = (getattr(cfg, "parse_mode", "HTML") or "HTML").upper()
     chosen_detail = (detail_level or getattr(cfg, "detail_level", "public") or "public").lower()

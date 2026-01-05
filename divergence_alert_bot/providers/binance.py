@@ -8,6 +8,7 @@ from typing import AsyncIterator, Dict, List, Optional, Tuple
 
 import aiohttp
 import websockets
+import time
 
 from ..models import Candle
 
@@ -160,6 +161,107 @@ class BinanceProvider:
                 volume=float(row[5]),
             ))
         return out
+
+    async def fetch_klines_history(
+        self,
+        symbol: str,
+        timeframe: str,
+        total_needed: int,
+        *,
+        end_time_ms: Optional[int] = None,
+        chunk_limit: int = 1000,
+    ) -> List[Candle]:
+        """Fetch up to total_needed klines going backwards from end_time_ms (or now) and return in chronological order."""
+        end_ms = int(end_time_ms or (time.time() * 1000))
+        all_rows: List[Candle] = []
+
+        while len(all_rows) < int(total_needed):
+            limit = min(int(chunk_limit), max(1, int(total_needed) - len(all_rows)))
+            params = {
+                "symbol": symbol.upper(),
+                "interval": timeframe,
+                "limit": limit,
+                "endTime": end_ms,
+            }
+
+            sess = await self._get_session()
+            backoff = float(self.rest_backoff_s)
+            last_err: Optional[BaseException] = None
+            data = None
+            for attempt in range(1, int(self.rest_max_retries) + 1):
+                try:
+                    async with sess.get(_rest_base(self.market) + _klines_path(self.market), params=params) as resp:
+                        if resp.status in (418, 429):
+                            txt = await resp.text()
+                            retry_after = resp.headers.get("Retry-After")
+                            sleep_s = float(retry_after) if (retry_after and retry_after.isdigit()) else backoff
+                            log.warning(
+                                "rest_rate_limited status=%s symbol=%s tf=%s sleep=%.1fs body=%s",
+                                resp.status,
+                                symbol,
+                                timeframe,
+                                sleep_s,
+                                txt[:200],
+                            )
+                            await asyncio.sleep(sleep_s)
+                            backoff = min(backoff * 2.0, 20.0)
+                            continue
+
+                        if resp.status != 200:
+                            txt = await resp.text()
+                            raise RuntimeError(f"Binance klines failed: {resp.status} {txt[:500]}")
+
+                        data = await resp.json(content_type=None)
+                    last_err = None
+                    break
+                except (asyncio.TimeoutError, aiohttp.ClientError) as e:
+                    last_err = e
+                    if attempt >= int(self.rest_max_retries):
+                        break
+                    log.warning(
+                        "rest_timeout_or_client_err attempt=%d/%d symbol=%s tf=%s backoff=%.1fs err=%s",
+                        attempt,
+                        self.rest_max_retries,
+                        symbol,
+                        timeframe,
+                        backoff,
+                        e,
+                    )
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2.0, 20.0)
+
+            if last_err is not None:
+                raise last_err
+            if not data:
+                break
+
+            batch: List[Candle] = []
+            for row in data:
+                batch.append(Candle(
+                    open_time_ms=int(row[0]),
+                    close_time_ms=int(row[6]),
+                    open=float(row[1]),
+                    high=float(row[2]),
+                    low=float(row[3]),
+                    close=float(row[4]),
+                    volume=float(row[5]),
+                ))
+
+            if not batch:
+                break
+
+            all_rows.extend(batch)
+            # Move end_ms to before the earliest candle in this batch to continue backwards
+            end_ms = batch[0].open_time_ms - 1
+            if end_ms <= 0:
+                break
+
+        # Deduplicate and sort
+        dedup: Dict[int, Candle] = {}
+        for c in all_rows:
+            dedup[c.open_time_ms] = c
+        ordered = sorted(dedup.values(), key=lambda x: x.open_time_ms)
+        return ordered[-int(total_needed):]
 
     async def stream_klines(self, symbols: List[str], timeframes: List[str]) -> AsyncIterator[KlineEvent]:
         """Yields CLOSED klines for all (symbol, tf). Auto-reconnects."""

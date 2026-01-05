@@ -1,11 +1,11 @@
+# PARITY CONFIG — DO NOT ENABLE SNIPER FILTERS / TRADING HOURS
 app:
-  name: "Divergence Sentinel"
+  name: "Divergence Sentinel (TV Parity)"
   log_level: "INFO"
 
 provider:
   type: "binance"
-  market: "futures"        # futures|spot
-  # Default 20 symbols. Edit freely.
+  market: "futures"
   symbols:
     - BTCUSDT
     - ETHUSDT
@@ -27,51 +27,61 @@ provider:
     - NEARUSDT
     - OPUSDT
     - ARBUSDT
-
-  timeframes: ["15m", "30m", "1h"]
+  timeframes: ["15m"]
   warmup_candles: 350
-  rest_timeout_s: 60
+  rest_timeout_s: 30
   ws_heartbeat_s: 20
-  warmup_concurrency: 5
+  warmup_concurrency: 3
 
 strategy:
+  mode: "tv_parity"
+  parity_strict: true
   don_len: 120
   pivot_len: 5
   osc_len: 14
   ext_band_pct: 0.15
-  # Kill switches + scoring (High Probability Sniper)
-  ks_short_enabled: true
-  ks_don_width_atr_max: 16.7
-  ks_long_enabled: true
-  ks_liq_percentile_min: 0.25
-  ks_liq_lookback: 100
-  min_score_to_trade: 6
+
+  long_only: true
+  trade_enabled: true
+
+  entry_wait_confirm: true
+  use_bos_confirm: true
+  bos_atr_buffer: 0.10
+  max_wait_bars: 30
+
+  min_div_strength: 15.0
+  cooldown_bars: 0
+
+  use_cvd_gate: true
+  cvd_len_min: 60
+  use_dynamic_cvd_pct: true
+  cvd_lookback_bars: 2880
+  cvd_pct: 75
+  cvd_threshold: 244.075
+  use_close_minus_1ms: true
+
+  ks_long_enabled: false
+  ks_short_enabled: false
+  min_score_to_trade: 0
 
 trading_hours:
-  enabled: true
-  timezone: "UTC+3"   # Nairobi is UTC+3
-  start_hour: 8
-  end_hour: 1         # next day
-  # days: [0,1,2,3,4,5,6]   # optional: restrict to certain weekdays
-
-alerts:
-  parse_mode: "HTML"       # HTML | MarkdownV2
-  style: "corporate"
-  detail_level: "public"   # public | internal
-  footer: ""
-  include_entry_reference: true
-  include_pivot_reference: true
-  include_slippage_bps: true
-  include_structural_sl: true
-  structural_sl_max_distance_pct: 15.0  # max distance from entry to show structural SL (percent)
-  include_features: true
-  include_score_breakdown: true
-  dedupe: true
+  enabled: false
 
 telegram:
   enabled: true
-  token: "8595351198:AAGfwVdX2mNiRlGk78uhLFOSUCWiyq648Cw"            # or set env TELEGRAM_TOKEN
-  chat_ids: [5195322248]         # or env TELEGRAM_CHAT_IDS="id1,id2"
-  public_chat_ids: []  # optional: separate public channel(s)
-  private_chat_ids: [] # optional: private/internal channel(s)
-  disable_web_page_preview: true
+  token: "8595351198:AAGfwVdX2mNiRlGk78uhLFOSUCWiyq648Cw"
+  chat_ids: [5195322248]
+
+alerts:
+  parse_mode: "HTML"
+  detail_level: "public"
+  include_score_breakdown: false
+  include_features: true
+  dedupe: true
+
+webhook:
+  enabled: true
+  url: "http://127.0.0.1:9001/tv"
+  secret: "CHANGE_ME"
+  include_tf: true
+  timeout_s: 10

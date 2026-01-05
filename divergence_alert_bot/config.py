@@ -37,6 +37,30 @@ class TradingHours:
 
 @dataclass
 class StrategyConfig:
+    # Mode selection
+    mode: str = "sniper"  # sniper | tv_parity
+    long_only: bool = True
+    trade_enabled: bool = True
+    parity_strict: bool = False
+
+    # TV parity / entry engine toggles
+    entry_wait_confirm: bool = True
+    use_bos_confirm: bool = True
+    bos_atr_buffer: float = 0.10
+    max_wait_bars: int = 30
+    min_div_strength: float = 15.0
+    cooldown_bars: int = 0
+
+    # TV parity CVD gate
+    use_cvd_gate: bool = True
+    cvd_len_min: int = 60  # minutes
+    use_dynamic_cvd_pct: bool = True
+    cvd_lookback_bars: int = 2880
+    cvd_pct: int = 75
+    cvd_threshold: float = 244.075
+    use_close_minus_1ms: bool = True
+
+    # Shared defaults (legacy sniper)
     don_len: int = 120
     pivot_len: int = 5
     osc_len: int = 14
@@ -51,6 +75,29 @@ class StrategyConfig:
     ks_liq_lookback: int = 100
 
     min_score_to_trade: int = 6
+
+    def parity_signature(self) -> Dict[str, object]:
+        return {
+            "don_len": self.don_len,
+            "pivot_len": self.pivot_len,
+            "osc_len": self.osc_len,
+            "ext_band_pct": self.ext_band_pct,
+            "long_only": self.long_only,
+            "trade_enabled": self.trade_enabled,
+            "entry_wait_confirm": self.entry_wait_confirm,
+            "use_bos_confirm": self.use_bos_confirm,
+            "bos_atr_buffer": self.bos_atr_buffer,
+            "max_wait_bars": self.max_wait_bars,
+            "min_div_strength": self.min_div_strength,
+            "cooldown_bars": self.cooldown_bars,
+            "use_cvd_gate": self.use_cvd_gate,
+            "cvd_len_min": self.cvd_len_min,
+            "use_dynamic_cvd_pct": self.use_dynamic_cvd_pct,
+            "cvd_lookback_bars": self.cvd_lookback_bars,
+            "cvd_pct": self.cvd_pct,
+            "cvd_threshold": self.cvd_threshold,
+            "use_close_minus_1ms": self.use_close_minus_1ms,
+        }
 
 
 @dataclass
@@ -73,6 +120,16 @@ class TelegramConfig:
     public_chat_ids: List[str] = None
     private_chat_ids: List[str] = None
     disable_web_page_preview: bool = True
+
+
+@dataclass
+class WebhookConfig:
+    enabled: bool = False
+    url: str = ""
+    secret: str = ""
+    include_tf: bool = True
+    timeout_s: int = 10
+    headers: Dict[str, str] = None
 
 
 @dataclass
@@ -104,6 +161,7 @@ class Config:
     strategy: StrategyConfig
     trading_hours: TradingHours
     telegram: TelegramConfig
+    webhook: WebhookConfig
     alerts: AlertsConfig
 
 
@@ -116,6 +174,7 @@ def load_config(path: str) -> Config:
     strategy = raw.get("strategy", {})
     th = raw.get("trading_hours", {})
     tg = raw.get("telegram", {})
+    wh = raw.get("webhook", {})
     alerts = raw.get("alerts", {})
 
     cfg = Config(
@@ -124,6 +183,7 @@ def load_config(path: str) -> Config:
         strategy=StrategyConfig(**strategy),
         trading_hours=TradingHours(**th),
         telegram=TelegramConfig(**tg),
+        webhook=WebhookConfig(**wh),
         alerts=AlertsConfig(**alerts),
     )
 
@@ -148,5 +208,11 @@ def load_config(path: str) -> Config:
     private_env = os.getenv("TELEGRAM_PRIVATE_CHAT_IDS")
     if private_env:
         cfg.telegram.private_chat_ids = [x.strip() for x in private_env.split(",") if x.strip()]
+
+    # Webhook optional env override for secret/url
+    cfg.webhook.secret = _env_override(cfg.webhook.secret, "WEBHOOK_SECRET")
+    cfg.webhook.url = _env_override(cfg.webhook.url, "WEBHOOK_URL")
+    if cfg.webhook.headers is None:
+        cfg.webhook.headers = {}
 
     return cfg
