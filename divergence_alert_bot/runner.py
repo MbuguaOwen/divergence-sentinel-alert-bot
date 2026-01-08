@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
+import time
 from typing import Dict, Tuple, Set, List, Optional
 
 from .config import Config
@@ -17,6 +20,12 @@ from .providers.binance import BinanceProvider, KlineEvent
 from .cvd_store import CvdProxyStore
 
 log = logging.getLogger("runner")
+
+
+def _stable_strategy_signature(cfg: Config) -> str:
+    sig = cfg.strategy.parity_signature()
+    payload = json.dumps(sig, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class AlertRunner:
@@ -57,7 +66,12 @@ class AlertRunner:
         )
 
         self.engines: Dict[Tuple[str, str], StrategyEngine] = {}
-        self._dedupe: Set[Tuple[str, str, str, int]] = set()  # (sym, tf, side, confirm_time)
+        self._strategy_sig = _stable_strategy_signature(cfg)
+        self._dedupe: Set[str] = set()
+        self._metrics = {
+            "bos_same_bar_entries_total": 0,
+            "bos_same_bar_reject_total": 0,
+        }
         self._cvd_store: Dict[str, CvdProxyStore] = {}
         self._pending: Dict[Tuple[str, str], List[Tuple[int, object]]] = {}
         self._need_cvd = (cfg.strategy.mode == "tv_parity" and cfg.strategy.use_cvd_gate)
@@ -110,6 +124,7 @@ class AlertRunner:
                     ks_liq_percentile_min=self.cfg.strategy.ks_liq_percentile_min,
                     ks_liq_lookback=self.cfg.strategy.ks_liq_lookback,
                     min_score_to_trade=self.cfg.strategy.min_score_to_trade,
+                    strategy_sig=self._strategy_sig,
                 )
 
         sem = asyncio.Semaphore(max(1, int(getattr(self.cfg.provider, "warmup_concurrency", 5))))
@@ -178,6 +193,7 @@ class AlertRunner:
                     ks_liq_percentile_min=self.cfg.strategy.ks_liq_percentile_min,
                     ks_liq_lookback=self.cfg.strategy.ks_liq_lookback,
                     min_score_to_trade=self.cfg.strategy.min_score_to_trade,
+                    strategy_sig=self._strategy_sig,
                 )
 
         # Warm up 1m CVD first
@@ -330,13 +346,49 @@ class AlertRunner:
         if errs:
             raise ValueError("Parity strict config violation: " + "; ".join(errs))
 
-    async def _handle_signal(self, sig: Signal) -> None:
-        key = (sig.symbol, sig.timeframe, sig.side, sig.confirm_time_ms)
-        if self.cfg.alerts.dedupe and key in self._dedupe:
-            return
-        self._dedupe.add(key)
+    def _dedupe_key(self, sig: Signal) -> str:
+        if sig.signal_id:
+            return sig.signal_id
+        return f"{sig.symbol}:{sig.timeframe}:{sig.side}:{sig.confirm_time_ms}"
 
-        log.info("signal %s %s %s confirm=%s", sig.symbol, sig.timeframe, sig.side, sig.confirm_time_ms)
+    async def _handle_signal(self, sig: Signal) -> None:
+        dedupe_key = self._dedupe_key(sig)
+        if self.cfg.alerts.dedupe and dedupe_key in self._dedupe:
+            self._metrics["bos_same_bar_reject_total"] += 1
+            now_ms = int(time.time() * 1000)
+            latency_ms = now_ms - int(sig.confirm_time_ms)
+            log.info(
+                "signal %s %s %s confirm_ts=%s confirm_close_ms=%s now_ms=%s latency_ms=%s entry_mode=BOS_CLOSE_SAME_BAR order_result=rejected signal_id=%s entries_total=%d reject_total=%d",
+                sig.symbol,
+                sig.timeframe,
+                sig.side,
+                sig.confirm_time_ms,
+                sig.confirm_bar_close_ms,
+                now_ms,
+                latency_ms,
+                sig.signal_id,
+                self._metrics["bos_same_bar_entries_total"],
+                self._metrics["bos_same_bar_reject_total"],
+            )
+            return
+        self._dedupe.add(dedupe_key)
+        self._metrics["bos_same_bar_entries_total"] += 1
+
+        now_ms = int(time.time() * 1000)
+        latency_ms = now_ms - int(sig.confirm_time_ms)
+        log.info(
+            "signal %s %s %s confirm_ts=%s confirm_close_ms=%s now_ms=%s latency_ms=%s entry_mode=BOS_CLOSE_SAME_BAR order_result=submitted signal_id=%s entries_total=%d reject_total=%d",
+            sig.symbol,
+            sig.timeframe,
+            sig.side,
+            sig.confirm_time_ms,
+            sig.confirm_bar_close_ms,
+            now_ms,
+            latency_ms,
+            sig.signal_id,
+            self._metrics["bos_same_bar_entries_total"],
+            self._metrics["bos_same_bar_reject_total"],
+        )
 
         if self.webhook.enabled:
             try:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from typing import Dict, List, Optional, Tuple
 
 from .models import Candle, Signal
@@ -62,6 +63,7 @@ class StrategyEngine:
         cvd_pct: int = 50,
         cvd_threshold: float = 0.0,
         use_close_minus_1ms: bool = False,
+        strategy_sig: Optional[str] = None,
         # Kill switches
         ks_short_enabled: bool = True,
         ks_don_width_atr_max: float = 16.7,
@@ -94,6 +96,7 @@ class StrategyEngine:
         self.cvd_pct = cvd_pct
         self.cvd_threshold = cvd_threshold
         self.use_close_minus_1ms = use_close_minus_1ms
+        self.strategy_sig = strategy_sig
 
         self.ks_short_enabled = ks_short_enabled
         self.ks_don_width_atr_max = ks_don_width_atr_max
@@ -301,6 +304,12 @@ class StrategyEngine:
         self.longSetupNearLower = False
         self.longSetupBullDiv = False
         self.longSetupOscChange = 0.0
+
+    def _signal_id(self, side: str, confirm_ts: int) -> Optional[str]:
+        if not self.strategy_sig:
+            return None
+        base = f"{self.symbol}:{self.timeframe}:{side}:{confirm_ts}:{self.strategy_sig}"
+        return hashlib.sha256(base.encode("utf-8")).hexdigest()
 
     def _cvd_gate_pass(self, cvd_now: Optional[float], bar_idx: int) -> Tuple[bool, Optional[float]]:
         if not self.use_cvd_gate:
@@ -856,6 +865,7 @@ class StrategyEngine:
         bars_gap = confirm_idx - prev_bar if prev_bar is not None else confirm_idx
         slip_bps = ((entry_price - pivot_price) / pivot_price * 10000.0) if pivot_price else 0.0
         confirm_ts = tv_confirm_ts(confirm_c.close_time_ms, self.use_close_minus_1ms)
+        signal_id = self._signal_id(side, confirm_ts)
 
         extra = {
             "mode": "tv_parity",
@@ -893,6 +903,12 @@ class StrategyEngine:
             bars_gap=int(bars_gap),
             score_breakdown="",
             extra=extra,
+            confirm_bar_close_ms=confirm_c.close_time_ms,
+            confirm_bar_index=int(confirm_idx),
+            entry_price_reference=float(entry_price),
+            entry_intent="IMMEDIATE_ON_CLOSE",
+            entry_mode="BOS_CLOSE_SAME_BAR",
+            signal_id=signal_id,
         )
 
     def _make_signal(
@@ -922,12 +938,15 @@ class StrategyEngine:
                 diff = structural_sl - entry_price
             if diff > 0:
                 structural_sl_distance_pct = (diff / entry_price) * 100.0
+        confirm_c = self.candles[confirm_idx]
+        confirm_ts = confirm_c.close_time_ms
+        signal_id = self._signal_id(side, confirm_ts)
         return Signal(
             symbol=self.symbol,
             timeframe=self.timeframe,
             side=side,
             pivot_time_ms=self.candles[pivot_idx].close_time_ms,
-            confirm_time_ms=self.candles[confirm_idx].close_time_ms,
+            confirm_time_ms=confirm_ts,
             pivot_price=float(pivot_price),
             entry_price=float(entry_price),
             don_loc_pct=don_loc_pct,
@@ -941,6 +960,12 @@ class StrategyEngine:
             bars_gap=int(bars_gap),
             score_breakdown=score_breakdown or "",
             extra=extra,
+            confirm_bar_close_ms=confirm_c.close_time_ms,
+            confirm_bar_index=int(confirm_idx),
+            entry_price_reference=float(entry_price),
+            entry_intent="IMMEDIATE_ON_CLOSE",
+            entry_mode="BOS_CLOSE_SAME_BAR",
+            signal_id=signal_id,
         )
 
     def _extra_features(self, confirm_idx: int, pivot_idx: int) -> Dict:

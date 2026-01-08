@@ -11,6 +11,7 @@ import websockets
 import time
 
 from ..models import Candle
+from ..time_parity import canonical_close_ms
 
 log = logging.getLogger("binance")
 
@@ -153,7 +154,7 @@ class BinanceProvider:
             # [0]=open time, [6]=close time
             out.append(Candle(
                 open_time_ms=int(row[0]),
-                close_time_ms=int(row[6]),
+                close_time_ms=canonical_close_ms(int(row[6])),
                 open=float(row[1]),
                 high=float(row[2]),
                 low=float(row[3]),
@@ -239,7 +240,7 @@ class BinanceProvider:
             for row in data:
                 batch.append(Candle(
                     open_time_ms=int(row[0]),
-                    close_time_ms=int(row[6]),
+                    close_time_ms=canonical_close_ms(int(row[6])),
                     open=float(row[1]),
                     high=float(row[2]),
                     low=float(row[3]),
@@ -306,7 +307,7 @@ class BinanceProvider:
                         tf = k.get("i", "")
                         c = Candle(
                             open_time_ms=int(k.get("t")),
-                            close_time_ms=int(k.get("T")),
+                            close_time_ms=canonical_close_ms(int(k.get("T"))),
                             open=float(k.get("o")),
                             high=float(k.get("h")),
                             low=float(k.get("l")),

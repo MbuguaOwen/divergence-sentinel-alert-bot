@@ -7,26 +7,12 @@ provider:
   type: "binance"
   market: "futures"
   symbols:
-    - BTCUSDT
-    - ETHUSDT
-    - BNBUSDT
-    - SOLUSDT
-    - XRPUSDT
-    - ADAUSDT
-    - DOGEUSDT
-    - TRXUSDT
-    - LINKUSDT
-    - AVAXUSDT
-    - MATICUSDT
-    - DOTUSDT
-    - LTCUSDT
-    - BCHUSDT
-    - UNIUSDT
-    - AAVEUSDT
-    - ATOMUSDT
-    - NEARUSDT
-    - OPUSDT
-    - ARBUSDT
+  - BTCUSDT
+  - ETHUSDT
+  - SOLUSDT
+  - PAXGUSDT
+  - XAGUSDT
+
   timeframes: ["15m"]
   warmup_candles: 350
   rest_timeout_s: 30
