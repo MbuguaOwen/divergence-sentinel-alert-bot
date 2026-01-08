@@ -34,3 +34,9 @@ class Signal:
     bars_gap: int
     score_breakdown: str
     extra: dict
+    confirm_bar_close_ms: Optional[int] = None
+    confirm_bar_index: Optional[int] = None
+    entry_price_reference: Optional[float] = None
+    entry_intent: Optional[str] = None
+    entry_mode: Optional[str] = None
+    signal_id: Optional[str] = None

@@ -42,18 +42,28 @@ class WebhookNotifier:
         if not self.enabled or not self.url:
             return
 
-        tf_field = ""
+        fields = [
+            f'"secret":"{self.secret}"',
+            f'"symbol":"{sig.symbol}"',
+            f'"side":"{sig.side}"',
+            f'"entry_price":{format_price_pine(sig.entry_price)}',
+            f'"confirm_time_ms":{int(sig.confirm_time_ms)}',
+        ]
         if self.include_tf:
-            tf_field = f',"tf":"{tf_to_tv_period(sig.timeframe)}"'
-        payload = (
-            f'{{"secret":"{self.secret}",'
-            f'"symbol":"{sig.symbol}",'
-            f'"side":"{sig.side}",'
-            f'"entry_price":{format_price_pine(sig.entry_price)},'
-            f'"confirm_time_ms":{int(sig.confirm_time_ms)}'
-            f"{tf_field}"
-            f"}}"
-        )
+            fields.append(f'"tf":"{tf_to_tv_period(sig.timeframe)}"')
+        if sig.signal_id:
+            fields.append(f'"signal_id":"{sig.signal_id}"')
+        if sig.confirm_bar_close_ms is not None:
+            fields.append(f'"confirm_bar_close_ms":{int(sig.confirm_bar_close_ms)}')
+        if sig.confirm_bar_index is not None:
+            fields.append(f'"confirm_bar_index":{int(sig.confirm_bar_index)}')
+        if sig.entry_intent:
+            fields.append(f'"entry_intent":"{sig.entry_intent}"')
+        if sig.entry_mode:
+            fields.append(f'"entry_mode":"{sig.entry_mode}"')
+        if sig.entry_price_reference is not None:
+            fields.append(f'"entry_price_reference":{format_price_pine(sig.entry_price_reference)}')
+        payload = "{" + ",".join(fields) + "}"
         try:
             timeout = aiohttp.ClientTimeout(total=self.timeout_s)
             async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -64,4 +74,3 @@ class WebhookNotifier:
         except Exception as e:
             # Log but do not crash
             log.warning("webhook_post_failed err=%s", e)
-

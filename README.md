@@ -50,6 +50,12 @@ python -m divergence_alert_bot.main --config configs/my.yaml
 - Ensure enough history for percentile CVD: the warmup planner pulls deep 1m history so thresholds are non-NA before trading.
 - Trading hours, kill switches, and scoring are disabled in tv_parity configs; turn them on only if you accept divergence from Pine.
 
+### Entry timing (alerts-only)
+- Signals are emitted on the confirm candle close, never the next bar open.
+- `confirm_time_ms` reflects the confirm bar close timestamp (TradingView parity may use close_time_ms + 1 when `use_close_minus_1ms=false`).
+- Signals carry `confirm_bar_close_ms`, `confirm_bar_index`, `entry_price_reference`, `entry_intent=IMMEDIATE_ON_CLOSE`, and a deterministic `signal_id`.
+- No intrabar touch entries or lookahead logic are used.
+
 ### Systemd service (recommended)
 ```bash
 sudo cp systemd/divergence-sentinel.service /etc/systemd/system/
