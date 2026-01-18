@@ -22,7 +22,7 @@ def test_tv_confirm_ts_helper():
     assert tv_confirm_ts(ct, False) == ct + 1
 
 
-def test_confirm_mode_without_bos_confirm_allows_trigger_without_atr():
+def test_confirm_mode_without_bos_confirmation_allows_trigger_without_atr():
     eng = StrategyEngine(
         symbol="BTCUSDT",
         timeframe="15m",
@@ -32,7 +32,7 @@ def test_confirm_mode_without_bos_confirm_allows_trigger_without_atr():
         ext_band_pct=1.0,
         mode="tv_parity",
         use_cvd_gate=False,
-        use_bos_confirm=False,  # should allow trig without ATR
+        use_bos_confirmation=False,  # should allow trig without ATR
         entry_wait_confirm=True,
         max_wait_bars=2,
         min_div_strength=0.0,

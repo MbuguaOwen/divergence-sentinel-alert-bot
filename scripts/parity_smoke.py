@@ -55,19 +55,19 @@ def main():
     )
 
     # Case 1: Same-bar confirm (entry_wait_confirm True, trigger on creation bar)
-    eng1 = StrategyEngine(**base_kwargs, entry_wait_confirm=True, use_bos_confirm=False, max_wait_bars=1, cooldown_bars=0)
+    eng1 = StrategyEngine(**base_kwargs, entry_wait_confirm=True, use_bos_confirmation=False, max_wait_bars=1, cooldown_bars=0)
     run_case("same_bar_confirm", eng1, cvd_values=[2, 2, 2, 2, 2])
 
     # Case 2: Confirm within window (trigger on next bar)
-    eng2 = StrategyEngine(**base_kwargs, entry_wait_confirm=True, use_bos_confirm=False, max_wait_bars=2, cooldown_bars=0)
+    eng2 = StrategyEngine(**base_kwargs, entry_wait_confirm=True, use_bos_confirmation=False, max_wait_bars=2, cooldown_bars=0)
     run_case("confirm_next_bar", eng2, cvd_values=[2, 2, 2, 2, 2])
 
     # Case 3: Window expires, no signal
-    eng3 = StrategyEngine(**base_kwargs, entry_wait_confirm=True, use_bos_confirm=False, max_wait_bars=0, cooldown_bars=0)
+    eng3 = StrategyEngine(**base_kwargs, entry_wait_confirm=True, use_bos_confirmation=False, max_wait_bars=0, cooldown_bars=0)
     run_case("confirm_expired", eng3, cvd_values=[2, 2, 2, 2, 2])
 
     # Case 4: Cooldown blocks second entry
-    eng4 = StrategyEngine(**base_kwargs, entry_wait_confirm=False, cooldown_bars=10, use_bos_confirm=False)
+    eng4 = StrategyEngine(**base_kwargs, entry_wait_confirm=False, cooldown_bars=10, use_bos_confirmation=False)
     seq = divergence_sequence() + divergence_sequence()  # two divergences back-to-back
     sigs = []
     for i, c in enumerate(seq):

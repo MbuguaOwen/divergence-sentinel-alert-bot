@@ -45,7 +45,7 @@ class StrategyConfig:
 
     # TV parity / entry engine toggles
     entry_wait_confirm: bool = True
-    use_bos_confirm: bool = True
+    use_bos_confirmation: bool = False
     bos_atr_buffer: float = 0.10
     max_wait_bars: int = 30
     min_div_strength: float = 15.0
@@ -85,7 +85,7 @@ class StrategyConfig:
             "long_only": self.long_only,
             "trade_enabled": self.trade_enabled,
             "entry_wait_confirm": self.entry_wait_confirm,
-            "use_bos_confirm": self.use_bos_confirm,
+            "use_bos_confirmation": self.use_bos_confirmation,
             "bos_atr_buffer": self.bos_atr_buffer,
             "max_wait_bars": self.max_wait_bars,
             "min_div_strength": self.min_div_strength,
@@ -172,6 +172,10 @@ def load_config(path: str) -> Config:
     app = raw.get("app", {})
     provider = raw.get("provider", {})
     strategy = raw.get("strategy", {})
+    if "use_bos_confirm" in strategy:
+        if "use_bos_confirmation" not in strategy:
+            strategy["use_bos_confirmation"] = strategy["use_bos_confirm"]
+        strategy.pop("use_bos_confirm", None)
     th = raw.get("trading_hours", {})
     tg = raw.get("telegram", {})
     wh = raw.get("webhook", {})

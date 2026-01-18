@@ -31,7 +31,7 @@ strategy:
   trade_enabled: true
 
   entry_wait_confirm: true
-  use_bos_confirm: true
+  use_bos_confirmation: false
   bos_atr_buffer: 0.10
   max_wait_bars: 30
 

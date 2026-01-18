@@ -52,7 +52,7 @@ class StrategyEngine:
         long_only: bool = True,
         trade_enabled: bool = True,
         entry_wait_confirm: bool = True,
-        use_bos_confirm: bool = True,
+        use_bos_confirmation: bool = False,
         bos_atr_buffer: float = 0.0,
         max_wait_bars: int = 4,
         min_div_strength: float = 0.0,
@@ -85,7 +85,7 @@ class StrategyEngine:
         self.long_only = long_only
         self.trade_enabled = trade_enabled
         self.entry_wait_confirm = entry_wait_confirm
-        self.use_bos_confirm = use_bos_confirm
+        self.use_bos_confirmation = use_bos_confirmation
         self.bos_atr_buffer = bos_atr_buffer
         self.max_wait_bars = max_wait_bars
         self.min_div_strength = min_div_strength
@@ -233,25 +233,6 @@ class StrategyEngine:
                 self.longSetupBullDiv = bull_div
                 self.longSetupOscChange = osc_change_pct
 
-                cvd_pass, cvd_thr = self._cvd_gate_pass(cvd_now, confirm_idx)
-                if (not self.entry_wait_confirm) and cvd_pass and self.trade_enabled and allow_signals:
-                    sig = self._make_tv_signal(
-                        side="LONG",
-                        pivot_idx=pivot_idx,
-                        confirm_idx=confirm_idx,
-                        entry_idx=confirm_idx,
-                        cvd_now=cvd_now,
-                        cvd_thr=cvd_thr,
-                        cvd_gate_pass=cvd_pass,
-                        entry_mode="RAW",
-                        osc_change_pct=osc_change_pct,
-                        near_lower=near_lower,
-                        bull_div=bull_div,
-                    )
-                    signals.append(sig)
-                    self.lastEntryBar = confirm_idx
-                    self._clear_setup()
-
             # Update pivot memory regardless (Pine behavior)
             self.piv.lastPL_price = pl_price
             self.piv.lastPL_osc = pl_osc
@@ -260,39 +241,43 @@ class StrategyEngine:
 
         # Confirm-mode trigger after setup creation (allows same-bar trigger)
         if self.longSetup and self.longSetBar is not None:
-            if (confirm_idx - self.longSetBar) > int(self.max_wait_bars):
+            if confirm_idx > (self.longSetBar + int(self.max_wait_bars)):
                 self._clear_setup()
             else:
-                atr = self.atr14[confirm_idx] if confirm_idx < len(self.atr14) else None
-                if self.use_bos_confirm and atr is None:
-                    pass  # need ATR to evaluate BOS trigger
-                elif self.longTrig is not None:
-                    buf = (atr or 0.0) * float(self.bos_atr_buffer)
-                    bos_ok = c.close > (self.longTrig + buf)
-                    trig_ok = bos_ok if self.use_bos_confirm else c.close > c.open
-                    cvd_pass, cvd_thr = self._cvd_gate_pass(cvd_now, confirm_idx)
-                    can_enter = self._can_enter(confirm_idx)
-                    if trig_ok and cvd_pass and can_enter and self.trade_enabled and allow_signals:
-                        pivot_idx_for_entry = self.longPivotIdx if self.longPivotIdx is not None else (self.piv.lastPL_bar if self.piv.lastPL_bar is not None else confirm_idx)
-                        osc_change = self.longSetupOscChange
-                        near_lower = self.longSetupNearLower
-                        bull_div = self.longSetupBullDiv
-                        sig = self._make_tv_signal(
-                            side="LONG",
-                            pivot_idx=pivot_idx_for_entry,
-                            confirm_idx=confirm_idx,
-                            entry_idx=confirm_idx,
-                            cvd_now=cvd_now,
-                            cvd_thr=cvd_thr,
-                            cvd_gate_pass=cvd_pass,
-                            entry_mode="CONFIRM",
-                            osc_change_pct=osc_change,
-                            near_lower=near_lower,
-                            bull_div=bull_div,
-                        )
-                        signals.append(sig)
-                        self.lastEntryBar = confirm_idx
-                        self._clear_setup()
+                cvd_pass, cvd_thr = self._cvd_gate_pass(cvd_now, confirm_idx)
+                can_enter = self._can_enter(confirm_idx)
+
+                bos_ok = True
+                if self.use_bos_confirmation:
+                    atr = self.atr14[confirm_idx] if confirm_idx < len(self.atr14) else None
+                    if atr is None or self.longTrig is None:
+                        bos_ok = False
+                    else:
+                        buf = (atr or 0.0) * float(self.bos_atr_buffer)
+                        bos_ok = c.close > (self.longTrig + buf)
+
+                if cvd_pass and bos_ok and can_enter and self.trade_enabled and allow_signals:
+                    pivot_idx_for_entry = self.longPivotIdx if self.longPivotIdx is not None else (self.piv.lastPL_bar if self.piv.lastPL_bar is not None else confirm_idx)
+                    osc_change = self.longSetupOscChange
+                    near_lower = self.longSetupNearLower
+                    bull_div = self.longSetupBullDiv
+                    entry_mode = "BOS_CVD" if self.use_bos_confirmation else "CVD_WAIT"
+                    sig = self._make_tv_signal(
+                        side="LONG",
+                        pivot_idx=pivot_idx_for_entry,
+                        confirm_idx=confirm_idx,
+                        entry_idx=confirm_idx,
+                        cvd_now=cvd_now,
+                        cvd_thr=cvd_thr,
+                        cvd_gate_pass=cvd_pass,
+                        entry_mode=entry_mode,
+                        osc_change_pct=osc_change,
+                        near_lower=near_lower,
+                        bull_div=bull_div,
+                    )
+                    signals.append(sig)
+                    self.lastEntryBar = confirm_idx
+                    self._clear_setup()
 
         return signals
 
@@ -871,7 +856,7 @@ class StrategyEngine:
             "mode": "tv_parity",
             "entry_mode": entry_mode,
             "entry_wait_confirm": bool(self.entry_wait_confirm),
-            "use_bos_confirm": bool(self.use_bos_confirm),
+            "use_bos_confirmation": bool(self.use_bos_confirmation),
             "bos_atr_buffer": float(self.bos_atr_buffer),
             "max_wait_bars": int(self.max_wait_bars),
             "min_div_strength": float(self.min_div_strength),

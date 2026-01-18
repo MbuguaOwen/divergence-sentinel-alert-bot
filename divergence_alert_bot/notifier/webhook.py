@@ -18,6 +18,18 @@ def format_price_pine(x: float) -> str:
     return s or "0"
 
 
+def _json_number(val: Optional[float]) -> str:
+    if val is None:
+        return "null"
+    return format_price_pine(float(val))
+
+
+def _json_bool(val: Optional[bool]) -> str:
+    if val is None:
+        return "null"
+    return "true" if val else "false"
+
+
 def tf_to_tv_period(tf: str) -> str:
     tf = (tf or "").lower()
     if tf.endswith("m"):
@@ -42,12 +54,23 @@ class WebhookNotifier:
         if not self.enabled or not self.url:
             return
 
+        extra = sig.extra or {}
+        trigger = extra.get("longTrig")
+        cvd_ok = extra.get("cvd_gate_pass")
+        cvd_now = extra.get("cvd_now")
+        cvd_thr = extra.get("cvd_thr")
+
         fields = [
             f'"secret":"{self.secret}"',
             f'"symbol":"{sig.symbol}"',
             f'"side":"{sig.side}"',
             f'"entry_price":{format_price_pine(sig.entry_price)}',
             f'"confirm_time_ms":{int(sig.confirm_time_ms)}',
+            f'"pivot_price":{format_price_pine(sig.pivot_price)}',
+            f'"trigger":{_json_number(trigger)}',
+            f'"cvd_ok":{_json_bool(cvd_ok)}',
+            f'"cvd":{_json_number(cvd_now)}',
+            f'"cvd_thr":{_json_number(cvd_thr)}',
         ]
         if self.include_tf:
             fields.append(f'"tf":"{tf_to_tv_period(sig.timeframe)}"')

@@ -14,17 +14,19 @@ class CvdProxyStore:
         self.max_history = max(1, int(max_history))
         self._vol_deque: Deque[float] = deque()
         self._sum: float = 0.0
-        self.history: Deque[Tuple[int, float]] = deque()
+        self._count: int = 0
+        self.history: Deque[Tuple[int, Optional[float]]] = deque()
 
-    def on_1m_candle(self, c: Candle, *, use_close_minus_1ms: bool) -> float:
+    def on_1m_candle(self, c: Candle, *, use_close_minus_1ms: bool) -> Optional[float]:
         signed_vol = c.volume if c.close >= c.open else -c.volume
+        self._count += 1
         self._vol_deque.append(signed_vol)
         self._sum += signed_vol
         if len(self._vol_deque) > self.cvd_len_min:
             old = self._vol_deque.popleft()
             self._sum -= old
 
-        cvd_now = self._sum
+        cvd_now = self._sum if self._count > self.cvd_len_min else None
         # Binance close_time_ms is already end-of-bar minus 1ms; adjust via parity rule.
         ts = c.close_time_ms if use_close_minus_1ms else (c.close_time_ms + 1)
         self.history.append((ts, cvd_now))

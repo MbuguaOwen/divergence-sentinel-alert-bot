@@ -175,7 +175,7 @@ def _format_tv_parity(signal: Signal, parse_mode: str, cfg) -> str:
         lines.append(_escape_text(f"CVD: {cvd_now} / Thr: {cvd_thr} | Pass: {gate_pass}", parse_mode))
 
     lines.append(_escape_text(f"Osc%: {signal.osc_change_pct:+.1f}% | Don loc: {signal.don_loc_pct:.1f}%", parse_mode))
-    lines.append(_escape_text(f"Trigger: BOS={extra.get('use_bos_confirm')} buf={extra.get('bos_atr_buffer')} wait={extra.get('max_wait_bars')} longTrig={extra.get('longTrig')}", parse_mode))
+    lines.append(_escape_text(f"Trigger: BOS={extra.get('use_bos_confirmation')} buf={extra.get('bos_atr_buffer')} wait={extra.get('max_wait_bars')} longTrig={extra.get('longTrig')}", parse_mode))
 
     if getattr(cfg, "include_structural_sl", True):
         sl_price, sl_distance = _safe_structural_sl(signal, getattr(cfg, "structural_sl_max_distance_pct", None))

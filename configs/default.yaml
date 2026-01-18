@@ -39,6 +39,7 @@ strategy:
   pivot_len: 5
   osc_len: 14
   ext_band_pct: 0.15
+  use_bos_confirmation: false
   # Kill switches + scoring (High Probability Sniper)
   ks_short_enabled: true
   ks_don_width_atr_max: 16.7

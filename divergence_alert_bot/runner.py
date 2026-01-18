@@ -107,7 +107,7 @@ class AlertRunner:
                     long_only=self.cfg.strategy.long_only,
                     trade_enabled=self.cfg.strategy.trade_enabled,
                     entry_wait_confirm=self.cfg.strategy.entry_wait_confirm,
-                    use_bos_confirm=self.cfg.strategy.use_bos_confirm,
+                    use_bos_confirmation=self.cfg.strategy.use_bos_confirmation,
                     bos_atr_buffer=self.cfg.strategy.bos_atr_buffer,
                     max_wait_bars=self.cfg.strategy.max_wait_bars,
                     min_div_strength=self.cfg.strategy.min_div_strength,
@@ -176,7 +176,7 @@ class AlertRunner:
                     long_only=self.cfg.strategy.long_only,
                     trade_enabled=self.cfg.strategy.trade_enabled,
                     entry_wait_confirm=self.cfg.strategy.entry_wait_confirm,
-                    use_bos_confirm=self.cfg.strategy.use_bos_confirm,
+                    use_bos_confirmation=self.cfg.strategy.use_bos_confirmation,
                     bos_atr_buffer=self.cfg.strategy.bos_atr_buffer,
                     max_wait_bars=self.cfg.strategy.max_wait_bars,
                     min_div_strength=self.cfg.strategy.min_div_strength,
@@ -316,7 +316,7 @@ class AlertRunner:
         if self._need_cvd and cvd_now is None:
             store = self._cvd_store.setdefault(evt.symbol, CvdProxyStore(self.cfg.strategy.cvd_len_min))
             cvd_now = store.value_at_or_before(ts_adj)
-            if cvd_now is None:
+            if cvd_now is None and (store.latest_ts is None or store.latest_ts < ts_adj):
                 self._add_pending(evt, ts_adj)
                 return
 
